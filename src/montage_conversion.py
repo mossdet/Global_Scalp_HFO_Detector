@@ -55,7 +55,8 @@ def convert_to_long_bipolar(eeg_data, plot_ok=False):
             scalp_bp_eeg['data'] = signal_to_plot
         else:
             scalp_bp_eeg['mtg_labels'] = np.vstack(
-                (scalp_bp_eeg['mtg_labels'], np.array(ch_to_plot_name)))
+                (scalp_bp_eeg['mtg_labels'], ch_to_plot_name))
+
             scalp_bp_eeg['data'] = np.vstack(
                 (scalp_bp_eeg['data'], signal_to_plot))
 
