@@ -19,7 +19,7 @@ for fn in SCALP_EEG_FILES:
 
     denoised_gs, artefact_marks = get_hfo_gold_standard(scalp_bp_eeg)
 
-    plot_eeg_marks(scalp_bp_eeg, denoised_gs)
+    plot_eeg_marks(scalp_bp_eeg, denoised_gs, artefact_marks)
 
     get_characterized_events(scalp_bp_eeg, denoised_gs)
     get_eeg_event_wdws(scalp_bp_eeg, denoised_gs)
