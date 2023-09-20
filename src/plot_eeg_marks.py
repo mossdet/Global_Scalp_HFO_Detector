@@ -155,8 +155,8 @@ def plot_events_big_wdw():
             rect_w = hfo_time[-1]-hfo_time[0]
             if rect_w < 0.02:
                 rect_w = 0.02
-            rect_h = inter_y
-            rect = plt.Rectangle((hfo_time[0], ch_offset-inter_y/2), rect_w, rect_h,
+            rect_h = (inter_y/3)*2
+            rect = plt.Rectangle((hfo_time[0], ch_offset-inter_y/3), rect_w, rect_h,
                                  facecolor="red", alpha=0.7)
             ax_big.add_patch(rect)
 
@@ -198,7 +198,9 @@ def plot_small_wdw():
     ax_small.set_xlim(min(wdw_time), max(wdw_time))
     ax_small.set_yticks(y_ticks_small, labels=mtg_labels)
     ax_small.set_title(filename)
-    plt.grid(True)
+
+    ax_small.xaxis.set_minor_locator(AutoMinorLocator(5))
+    ax_small.grid(True, 'both', 'x', color='g', linestyle='--', linewidth=0.5)
     plt.draw()
 
 
@@ -239,8 +241,8 @@ def plot_events_small_wdw():
             rect_w = hfo_time[-1]-hfo_time[0]
             if rect_w < 0.02:
                 rect_w = 0.02
-            rect_h = inter_y
-            rect = plt.Rectangle((hfo_time[0], ch_offset-inter_y/2), rect_w, rect_h,
+            rect_h = (inter_y/3)*2
+            rect = plt.Rectangle((hfo_time[0], ch_offset-inter_y/3), rect_w, rect_h,
                                  facecolor="red", alpha=0.7)
             ax_small.add_patch(rect)
 
