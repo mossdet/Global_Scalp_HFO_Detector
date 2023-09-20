@@ -6,5 +6,5 @@ These scripts perfrom the following steps:
 - Discard HFO events within artefact markings
 - Open an EEG reviewer showing the Artefact and HFO events
 
-### EEG Reviewer
+### EEG Reviewer:
 ![Alt text](Images/EEG_Review_Wdw.png "EEG Review")
