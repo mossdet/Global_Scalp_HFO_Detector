@@ -15,11 +15,16 @@ channel, type, startTime, endTime, startSample, endSample, comments, channSpec, 
 '''
 
 
-def get_hfo_gold_standard(scalp_bp_eeg):
-    clean()
+def find_gs_files(patient_fn):
+    """
+    Find and return valid gold standard files for a specific patient.
 
-    # find gold standard file from specific patient
-    patient_fn = scalp_bp_eeg['filename'].split('.')[0]
+    Parameters:
+    - patient_fn: The filename of the patient.
+
+    Returns:
+    - pat_valid_gs_files: A list of valid gold standard files for the patient.
+    """
     mtg_labels = [mtg_label[0].lower()
                   for mtg_label in scalp_bp_eeg['mtg_labels']]
 
@@ -27,36 +32,78 @@ def get_hfo_gold_standard(scalp_bp_eeg):
     pat_valid_gs_sel = [gs_file.find(
         patient_fn) != -1 for gs_file in all_gs_files]
     pat_valid_gs_files = np.array(all_gs_files)[pat_valid_gs_sel]
+    return pat_valid_gs_files
+
+
+def load_gs_file(mat_fname):
+    """
+    Load data from a gold standard file and store it as a dictionary.
+
+    Parameters:
+    - mat_fname: The filename of the gold standard file (MATLAB format).
+
+    Returns:
+    - marks: A dictionary containing the loaded data.
+    """
+    mat_contents = sio.loadmat(mat_fname)
+    detections_data = mat_contents['detections']
+
+    # store data as a dictionary
+    marks = {}
+    marks['channel'] = np.array(
+        [detection[0][0].lower() for detection in detections_data])
+
+    marks['type'] = np.array([detection[1][0]
+                             for detection in detections_data])
+
+    marks['start_s'] = np.array([detection[2][0][0]
+                                for detection in detections_data])
+
+    marks['end_s'] = np.array([detection[3][0][0]
+                              for detection in detections_data])
+
+    marks['start'] = np.array([detection[4][0][0]
+                               for detection in detections_data])
+
+    marks['end'] = np.array([detection[5][0][0]
+                            for detection in detections_data])
+
+    marks['comments'] = np.array([detection[6][0]
+                                  for detection in detections_data])
+
+    marks['chann_spec'] = np.array(
+        [detection[7][0][0] for detection in detections_data])
+
+    marks['creation_t'] = np.array(
+        [detection[8][0] for detection in detections_data])
+
+    marks['username'] = np.array([detection[9][0]
+                                  for detection in detections_data])
+    return marks
+
+
+def get_hfo_gold_standard(scalp_bp_eeg):
+    """
+    Extract and process high-frequency oscillation (HFO) gold standard data.
+
+    Parameters:
+    - scalp_bp_eeg: EEG data for the patient.
+
+    Returns:
+    - all_detectors_denoised_marks: A dictionary containing denoised HFO markers.
+    """
+    clean()
+
+    # find gold standard file from specific patient
+    patient_fn = scalp_bp_eeg['filename'].split('.')[0]
+    pat_valid_gs_files = find_gs_files(patient_fn)
 
     # load GS data from each file
     all_detectors_denoised_marks = []
     for gs_file in pat_valid_gs_files:
         mat_fname = paths['Scalp_Maggi_GS'] + gs_file
-        mat_contents = sio.loadmat(mat_fname)
-        detections_data = mat_contents['detections']
 
-        # store data as a dictionary
-        marks = {}
-        marks['channel'] = np.array([detection[0][0].lower()
-                                     for detection in detections_data])
-        marks['type'] = np.array([detection[1][0]
-                                 for detection in detections_data])
-        marks['start_s'] = np.array([detection[2][0][0]
-                                    for detection in detections_data])
-        marks['end_s'] = np.array([detection[3][0][0]
-                                  for detection in detections_data])
-        marks['start'] = np.array([detection[4][0][0]
-                                  for detection in detections_data])
-        marks['end'] = np.array([detection[5][0][0]
-                                for detection in detections_data])
-        marks['comments'] = np.array([detection[6][0]
-                                     for detection in detections_data])
-        marks['chann_spec'] = np.array([detection[7][0][0]
-                                        for detection in detections_data])
-        marks['creation_t'] = np.array([detection[8][0]
-                                        for detection in detections_data])
-        marks['username'] = np.array([detection[9][0]
-                                     for detection in detections_data])
+        marks = load_gs_file(mat_fname)
 
         all_denoised_marks = []
         # Extract channel specific marks and artefacts
@@ -78,8 +125,8 @@ def get_hfo_gold_standard(scalp_bp_eeg):
                 ch_marks[marks_info] = marks[marks_info][ch_sel]
 
             # channel specific artefacts
-            ch_artfct_sel = np.array(ch_marks['type'] == 'IED') & \
-                np.array(ch_marks['chann_spec'] == 1)
+            ch_artfct_sel = np.array(ch_marks['type'] == 'IED') & np.array(
+                ch_marks['chann_spec'] == 1)
             ch_artfct_start = ch_marks['start'][ch_artfct_sel]
             ch_artfct_end = ch_marks['end'][ch_artfct_sel]
 
