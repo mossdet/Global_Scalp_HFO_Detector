@@ -65,7 +65,8 @@ def load_gs_file(mat_fname):
     for key in marks:
         key_vec_shape = marks[key].shape
         if (len(key_vec_shape) > 1) or (key_vec_shape[0] != marks_data_shape[0]):
-            raise ("Read featues from marks don't have uniform dimensions")
+            raise Exception(
+                "Read featues from marks don't have uniform dimensions")
 
     return marks
 
@@ -75,8 +76,9 @@ def get_denoised_event_marks(mtg_labels, artefact_marks, event_marks):
     nr_artefacts = len(artefact_marks['type'])
     denoised_event_marks = {}
 
-    for mtg_label in mtg_labels:
-        ch_sel = event_marks['channel'] == mtg_label[0].lower()
+    for mtg_label_cap in mtg_labels:
+        mtg_label = mtg_label_cap.lower()
+        ch_sel = event_marks['channel'] == mtg_label
 
         if sum(ch_sel) == 0:
             continue
@@ -88,34 +90,38 @@ def get_denoised_event_marks(mtg_labels, artefact_marks, event_marks):
         event_in_artfct_sel = np.full((nr_events), False)
 
         # loop through artefact and channel events to determine coincidence
-        for ai in range(0, nr_artefacts):
+        for ei in range(0, nr_events):
+            event_strt = chann_events['start'][ei]
+            event_end = chann_events['end'][ei]
 
-            artfct_chann = artefact_marks['channel'][ai]
-            artfct_chspec = artefact_marks['chann_spec'][ai] == 1
-            if artfct_chspec and (artfct_chann != mtg_label):
-                continue
+            for ai in range(0, nr_artefacts):
 
-            artfct_strt = artefact_marks['start'][ai]
-            artfct_end = artefact_marks['end'][ai]
+                artfct_chann = artefact_marks['channel'][ai]
+                artfct_chspec = artefact_marks['chann_spec'][ai] == 1
+                if artfct_chspec and (artfct_chann != mtg_label):
+                    continue
 
-            for ei in range(0, nr_events):
-                event_strt = chann_events['start'][ei]
-                event_end = chann_events['end'][ei]
+                artfct_strt = artefact_marks['start'][ai]
+                artfct_end = artefact_marks['end'][ai]
 
                 coincide_1 = (
                     event_strt >= artfct_strt and event_strt <= artfct_end)
                 coincide_2 = (
                     event_end >= artfct_strt and event_end <= artfct_end)
 
-                event_in_artfct_sel[ei] = coincide_1 | coincide_2
+                coincidence_ok = np.logical_or(coincide_1, coincide_2)
+                if coincidence_ok:
+                    event_in_artfct_sel[ei] = True
+                    break
 
         if len(denoised_event_marks) == 0:
             for key, value in chann_events.items():
-                denoised_event_marks[key] = value[~event_in_artfct_sel]
+                denoised_event_marks[key] = value[np.logical_not(
+                    event_in_artfct_sel)]
         else:
             for key, value in chann_events.items():
                 denoised_event_marks[key] = np.append(
-                    denoised_event_marks[key], value[~event_in_artfct_sel])
+                    denoised_event_marks[key], value[np.logical_not(event_in_artfct_sel)])
 
     return denoised_event_marks
 
@@ -126,7 +132,8 @@ def erase_spike_events(denoised_event_marks):
                            1 for type in denoised_event_marks['type']])
 
     for key in denoised_event_marks:
-        denoised_event_marks[key] = denoised_event_marks[key][~spikes_sel]
+        denoised_event_marks[key] = denoised_event_marks[key][np.logical_not(
+            spikes_sel)]
 
     return denoised_event_marks
 
@@ -148,7 +155,7 @@ def get_hfo_gold_standard(scalp_bp_eeg):
         artefacts_sel = marks['type'] == 'IED'
         artefact_marks = {key: value[artefacts_sel]
                           for key, value in marks.items()}
-        event_marks = {key: value[~artefacts_sel]
+        event_marks = {key: value[np.logical_not(artefacts_sel)]
                        for key, value in marks.items()}
 
         # get events outside of marked artefactual segments
@@ -157,15 +164,16 @@ def get_hfo_gold_standard(scalp_bp_eeg):
 
         denoised_event_marks = erase_spike_events(denoised_event_marks)
 
-        # Append file specific artefact marks to the all files artefact markers
-        if not all_denoised_event_marks:
+        # Append file specific artefact marks to the (all-files) artefact markers
+        if len(all_denoised_event_marks) == 0:
             all_denoised_event_marks = denoised_event_marks
         else:
             for key in denoised_event_marks:
                 all_denoised_event_marks[key] = np.append(
                     all_denoised_event_marks[key], denoised_event_marks[key])
 
-        if not all_artefact_marks:
+        # Append file specific artefact marks to the (all-files) artefact markers
+        if len(all_artefact_marks) == 0:
             all_artefact_marks = artefact_marks
         else:
             for key in artefact_marks:

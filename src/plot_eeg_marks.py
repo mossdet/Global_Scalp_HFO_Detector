@@ -268,7 +268,6 @@ def plot_eeg_marks(eeg, hfo_marks, artefact_marks):
     time = eeg['time_s']
 
     data = np.flipud(data)
-    mtg_labels = [label[0] for label in mtg_labels]
     mtg_labels = np.flip(mtg_labels)
 
     bp_data = filter_data(fs, data, 80, 500)
