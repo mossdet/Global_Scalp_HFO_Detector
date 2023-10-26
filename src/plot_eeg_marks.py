@@ -5,13 +5,16 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import AutoMinorLocator
+from dsp_tools import get_cmwt
 
 from fir_bp_filter import filter_data
 
 filename = ""
 time = []
 data = []
+fs = 0
 bp_data = []
+cmwt_data = []
 mtg_labels = []
 y_delta_big = []
 y_ticks_big = []
@@ -20,6 +23,8 @@ y_ticks_small = []
 
 wdw_start = []
 wdw_nr_samples = 0
+small_wdw_nr_samples = 0
+spctrm_chidx = 0
 
 fig = []
 ax_big = []
@@ -37,28 +42,44 @@ def refresh_plots():
     plot_events_small_wdw()
 
 
-def back_button(button):
+def back_button_big(button):
     global wi
     wi -= 1
     refresh_plots()
+    plot_spctrm_wdw()
 
 
-def fwd_button(button):
+def fwd_button_big(button):
     global wi
     wi += 1
     refresh_plots()
+    plot_spctrm_wdw()
 
 
-def dwn_button(button):
+def dwn_button_big(button):
     global y_delta_big
     y_delta_big += y_delta_big*0.1
     refresh_plots()
 
 
-def up_button(button):
+def up_button_big(button):
     global y_delta_big
     y_delta_big -= y_delta_big*0.1
     refresh_plots()
+
+
+def back_button_small(button):
+    global wi
+    wi -= 1
+    refresh_plots()
+    plot_spctrm_wdw()
+
+
+def fwd_button_small(button):
+    global wi
+    wi += 1
+    refresh_plots()
+    plot_spctrm_wdw()
 
 
 def dwn_button_small(button):
@@ -71,6 +92,22 @@ def up_button_small(button):
     global y_delta_small
     y_delta_small -= y_delta_small*0.1
     refresh_plots()
+
+
+def button_spctrm_ch_up(button):
+    global spctrm_chidx
+    spctrm_chidx += 1
+    if spctrm_chidx > len(mtg_labels)-1:
+        spctrm_chidx = len(mtg_labels)-1
+    plot_spctrm_wdw()
+
+
+def button_spctrm_ch_down(button):
+    global spctrm_chidx
+    spctrm_chidx -= 1
+    if spctrm_chidx < 0:
+        spctrm_chidx = 0
+    plot_spctrm_wdw()
 
 
 def plot_big_wdw():
@@ -167,7 +204,7 @@ def plot_events_big_wdw():
 
 def plot_small_wdw():
     global filename, mtg_labels
-    global time, bp_data, y_delta_small, y_ticks_small, wdw_start, wdw_nr_samples, wi
+    global time, bp_data, y_delta_small, y_ticks_small, wdw_start, small_wdw_nr_samples, wi
     global fig, ax_small
 
     nr_mtgs = len(mtg_labels)
@@ -178,7 +215,7 @@ def plot_small_wdw():
         wi = len(wdw_start)-1
 
     sample_start = wdw_start[wi]
-    sample_end = sample_start + wdw_nr_samples
+    sample_end = sample_start + small_wdw_nr_samples
     wdw_data = bp_data[:, sample_start:sample_end]
     wdw_time = time[sample_start:sample_end]
 
@@ -206,14 +243,14 @@ def plot_small_wdw():
 
 def plot_events_small_wdw():
     global filename, mtg_labels
-    global time, bp_data, y_delta_small, wdw_start, wdw_nr_samples, wi
+    global time, bp_data, y_delta_small, wdw_start, small_wdw_nr_samples, wi
     global fig, ax_small
     global marks, artefacts
 
     nr_mtgs = len(mtg_labels)
 
     sample_start = wdw_start[wi]
-    sample_end = sample_start + wdw_nr_samples
+    sample_end = sample_start + small_wdw_nr_samples
     wdw_start_s = time[sample_start]
     wdw_end_s = time[sample_end]
 
@@ -249,9 +286,54 @@ def plot_events_small_wdw():
     plt.draw()
 
 
+def plot_spctrm_wdw():
+    global filename, fs, mtg_labels
+    global time, data, wdw_start, small_wdw_nr_samples, wi, spctrm_chidx
+    global fig, ax_spctrm
+
+    data_len = np.shape(data)[1]
+
+    if wi < 0:
+        wi = 0
+    if wi > len(wdw_start)-1:
+        wi = len(wdw_start)-1
+
+    start_pad = int(2*fs)
+    end_pad = int(2*fs)
+    sample_start = int(wdw_start[wi] - start_pad)
+    sample_end = int(wdw_start[wi] + small_wdw_nr_samples + end_pad)
+    if sample_start < 0:
+        sample_start = wdw_start[wi]
+        start_pad = 0
+    if sample_end > data_len-1:
+        sample_end = wdw_start[wi] + small_wdw_nr_samples
+        end_pad = 0
+
+    wdw_data = data[spctrm_chidx, sample_start:sample_end]
+
+    freqs = np.arange(70, 510, 5)
+    freqs, cmwtm = get_cmwt(wdw_data, fs, freqs, nr_cycles=7)
+
+    # remove befor and after data pads
+    sample_start += start_pad
+    sample_end -= end_pad
+    wdw_time = time[sample_start:sample_end]
+    loc_wdw_s = start_pad
+    loc_wdw_e = np.shape(cmwtm)[1]-end_pad
+    cmwtm = cmwtm[:, loc_wdw_s:loc_wdw_e]
+
+    ax_spctrm.clear()
+    ax_spctrm.pcolormesh(wdw_time, freqs, cmwtm,
+                         cmap='viridis', shading='gouraud')
+
+    ax_spctrm.set_title(mtg_labels[spctrm_chidx])
+
+    plt.draw()
+
+
 def plot_eeg_marks(eeg, hfo_marks, artefact_marks):
-    global filename, mtg_labels, time, data, bp_data
-    global y_delta_big, y_delta_small, wdw_start, wdw_nr_samples, wi
+    global filename, fs, mtg_labels, time, data, bp_data, cmwt_data
+    global y_delta_big, y_delta_small, wdw_start, wdw_nr_samples, small_wdw_nr_samples, wi, spctrm_chidx
     global fig, ax_big, ax_small, ax_spctrm
     global marks, artefacts
 
@@ -274,46 +356,67 @@ def plot_eeg_marks(eeg, hfo_marks, artefact_marks):
 
     wi = 0
     wdw_dur_s = 10
+    small_wdw_dur_s = 10
     wdw_nr_samples = int(math.floor(wdw_dur_s * fs))
+    small_wdw_nr_samples = int(math.floor(small_wdw_dur_s * fs))
     wdw_start = np.arange(0, nr_samples, wdw_nr_samples)
     y_delta_big = np.abs(np.max(data[:]))/10
     y_delta_small = np.abs(np.max(bp_data[:]))/10
+    spctrm_chidx = 0
 
     plt.close()
     fig = plt.figure(figsize=(6, 6))
 
+    # Add panels to figure
     ax_big = fig.add_axes([0.05, 0.1, 0.45, 0.85])
     ax_big.set_facecolor([0.86275, 0.98039, 0.86275])
-
-    ax_small = fig.add_axes([0.55, 0.1, 0.43, 0.85])
+    ax_small = fig.add_axes([0.55, 0.5, 0.43, 0.45])
     ax_small.set_facecolor([0.86275, 0.98039, 0.86275])
+    ax_spctrm = fig.add_axes([0.55, 0.1, 0.43, 0.35])
 
-    axprev = fig.add_axes([0.45, 0.02, 0.05, 0.05])
-    axnext = fig.add_axes([0.5, 0.02, 0.05, 0.05])
+    # Big Wdw Buttons
+    axdown_big = fig.add_axes([0.1, 0.02, 0.05, 0.05])
+    axup_big = fig.add_axes([0.15, 0.02, 0.05, 0.05])
+    axprev_big = fig.add_axes([0.25, 0.02, 0.05, 0.05])
+    axnext_big = fig.add_axes([0.30, 0.02, 0.05, 0.05])
 
-    axdown_big = fig.add_axes([0.2, 0.02, 0.05, 0.05])
-    axup_big = fig.add_axes([0.25, 0.02, 0.05, 0.05])
-
-    ax_down_small = fig.add_axes([0.7, 0.02, 0.05, 0.05])
-    ax_up_small = fig.add_axes([0.75, 0.02, 0.05, 0.05])
-
-    bnext = Button(axnext, '>>')
-    bnext.on_clicked(fwd_button)
-    bprev = Button(axprev, '<<')
-    bprev.on_clicked(back_button)
+    bprev = Button(axprev_big, '<<')
+    bprev.on_clicked(back_button_big)
+    bnext = Button(axnext_big, '>>')
+    bnext.on_clicked(fwd_button_big)
 
     bdown = Button(axdown_big, '-')
-    bdown.on_clicked(dwn_button)
+    bdown.on_clicked(dwn_button_big)
     bup = Button(axup_big, '+')
-    bup.on_clicked(up_button)
+    bup.on_clicked(up_button_big)
+
+    # Small Wdw Buttons
+    ax_down_small = fig.add_axes([0.65, 0.02, 0.05, 0.05])
+    ax_up_small = fig.add_axes([0.70, 0.02, 0.05, 0.05])
+    axprev_small = fig.add_axes([0.8, 0.02, 0.05, 0.05])
+    axnext_small = fig.add_axes([0.85, 0.02, 0.05, 0.05])
+
+    bprev = Button(axprev_small, '<<')
+    bprev.on_clicked(back_button_small)
+    bnext = Button(axnext_small, '>>')
+    bnext.on_clicked(fwd_button_small)
 
     bdown_small = Button(ax_down_small, '-')
     bdown_small.on_clicked(dwn_button_small)
     bup_small = Button(ax_up_small, '+')
     bup_small.on_clicked(up_button_small)
 
+    # Spectrogramm buttons
+    ax_spctrm_ch_up = fig.add_axes([0.95, 0.04, 0.02, 0.015])
+    ax_spctrm_ch_dwn = fig.add_axes([0.95, 0.02, 0.02, 0.015])
+    spctrm_ch_up = Button(ax_spctrm_ch_up, 'ʌ')
+    spctrm_ch_up.on_clicked(button_spctrm_ch_up)
+    spctrm_ch_dwn = Button(ax_spctrm_ch_dwn, 'v')
+    spctrm_ch_dwn.on_clicked(button_spctrm_ch_down)
+
     plot_big_wdw()
     plot_small_wdw()
+    plot_spctrm_wdw()
 
     plot_events_big_wdw()
     plot_events_small_wdw()

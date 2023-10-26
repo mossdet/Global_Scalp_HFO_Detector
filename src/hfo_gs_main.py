@@ -15,8 +15,13 @@ from get_hfo_and_artefacts_marks import get_hfo_gold_standard
 for fn in SCALP_EEG_FILES:
     eeg_path = paths['ScalpData'] + fn
     eeg_data = mne.io.read_raw_edf(eeg_path)
-    scalp_bp_eeg = convert_to_long_bipolar(eeg_data, False)
+    eeg_data_wdw = eeg_data.copy().crop(tmin=0, tmax=10)
+    eeg_data_wdw.set_montage("standard_1020", match_case=False,
+                             match_alias=True, on_missing='warn', verbose=None)
 
+    eegplt = eeg_data_wdw.plot()
+
+    scalp_bp_eeg = convert_to_long_bipolar(eeg_data, False)
     denoised_gs, artefact_marks = get_hfo_gold_standard(scalp_bp_eeg)
 
     plot_eeg_marks(scalp_bp_eeg, denoised_gs, artefact_marks)
